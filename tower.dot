@@ -1,0 +1,153 @@
+digraph Tower {
+    thread_signal_SPI1_IRQHandler [style=filled];
+    thread_period_5ms [style=filled];
+    thread_period_10ms [style=filled];
+    thread_period_20ms [style=filled];
+    thread_period_1000ms [style=filled];
+    thread_init [style=filled];
+    subgraph  cluster_applyCalibration {
+        color = blue;
+        node [style=filled];
+        biased_gyro;
+        cal_latest;
+        control_law;
+        label = "monitor applyCalibration";
+    }
+    subgraph  cluster_applyCalibration_2 {
+        color = blue;
+        node [style=filled];
+        biased_gyro_2;
+        cal_latest_2;
+        control_law_2;
+        label = "monitor applyCalibration_2";
+    }
+    subgraph  cluster_calcGyroBias {
+        color = blue;
+        node [style=filled];
+        accel_2;
+        gyro_2;
+        init_2;
+        output;
+        label = "monitor calcGyroBias";
+    }
+    subgraph  cluster_calcMagBias {
+        color = blue;
+        node [style=filled];
+        init_3;
+        mag;
+        output_2;
+        label = "monitor calcMagBias";
+    }
+    subgraph  cluster_l3gd20Ctl {
+        color = blue;
+        node [style=filled];
+        l3gd20;
+        l3gd20_init;
+        l3gd20_raw;
+        label = "monitor l3gd20Ctl";
+    }
+    subgraph  cluster_lsm303dSensorManager {
+        color = blue;
+        node [style=filled];
+        lsm303d_coroutine;
+        lsm303d_coroutine_init;
+        lsm303d_coroutine_raw;
+        periodic_read;
+        label = "monitor lsm303dSensorManager";
+    }
+    subgraph  cluster_mpu6kCtl {
+        color = blue;
+        node [style=filled];
+        mpu6000;
+        mpu6000_init;
+        mpu6000_raw;
+        period;
+        label = "monitor mpu6kCtl";
+    }
+    subgraph  cluster_ms5611SPISensorManager {
+        color = blue;
+        node [style=filled];
+        ms5611;
+        ms5611_init;
+        ms5611_raw;
+        periodic;
+        label = "monitor ms5611SPISensorManager";
+    }
+    subgraph  cluster_scheduler {
+        color = blue;
+        node [style=filled];
+        l3gd20_2;
+        lsm303d;
+        mpu6000_2;
+        ms5611_2;
+        ready_2;
+        response;
+        label = "monitor scheduler";
+    }
+    subgraph  cluster_sensor_enable {
+        color = blue;
+        node [style=filled];
+        init;
+        label = "monitor sensor_enable";
+    }
+    subgraph  cluster_spi1PeripheralDriver {
+        color = blue;
+        node [style=filled];
+        initialize_hardware;
+        irq;
+        request;
+        label = "monitor spi1PeripheralDriver";
+    }
+
+    thread_signal_SPI1_IRQHandler -> irq;
+    thread_period_5ms -> period;
+    thread_period_10ms -> periodic;
+    thread_period_20ms -> periodic_read;
+    thread_period_1000ms -> output;
+    thread_period_1000ms -> output_2;
+    thread_init -> initialize_hardware;
+    thread_init -> init_2;
+    thread_init -> init_3;
+    output -> cal_latest;
+    output_2 -> cal_latest_2;
+    l3gd20 -> l3gd20_2;
+    l3gd20 -> mpu6000_init;
+    l3gd20 -> lsm303d_coroutine_init;
+    l3gd20 -> ms5611_init;
+    l3gd20_init -> l3gd20;
+    l3gd20_raw -> l3gd20;
+    lsm303d_coroutine -> lsm303d;
+    lsm303d_coroutine -> mag;
+    lsm303d_coroutine -> biased_gyro_2;
+    lsm303d_coroutine_init -> lsm303d_coroutine;
+    lsm303d_coroutine_raw -> lsm303d_coroutine;
+    periodic_read -> lsm303d;
+    mpu6000 -> mpu6000_2;
+    mpu6000 -> gyro_2;
+    mpu6000 -> biased_gyro;
+    mpu6000 -> accel_2;
+    mpu6000_init -> mpu6000;
+    mpu6000_raw -> mpu6000;
+    period -> mpu6000_2;
+    period -> gyro_2;
+    period -> biased_gyro;
+    period -> accel_2;
+    ms5611 -> ms5611_2;
+    ms5611_init -> ms5611;
+    ms5611_raw -> ms5611;
+    periodic -> ms5611_2;
+    l3gd20_2 -> request;
+    lsm303d -> request;
+    mpu6000_2 -> request;
+    ms5611_2 -> request;
+    ready_2 -> request;
+    response -> request;
+    response -> mpu6000_raw;
+    response -> lsm303d_coroutine_raw;
+    response -> ms5611_raw;
+    response -> l3gd20_raw;
+    init -> l3gd20_init;
+    initialize_hardware -> init;
+    initialize_hardware -> ready_2;
+    irq -> response;
+}

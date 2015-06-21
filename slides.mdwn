@@ -1,0 +1,389 @@
+% Trustworthy Software in the Real World
+% Jamey Sharp
+% 2015-06-23
+
+# intro <!-- 5 minutes -->
+
+## "trusted" software
+
+controlling systems where privacy, money, or lives are at stake
+
+## "trustworthy" software
+
+when that trust is justified (very different!)
+
+## trusted
+
+> - quadcopters <!-- let's come back to that -->
+> - Mars rovers: expensive and autonomous <!-- expensive, must be fully autonomous since speed of light delay is O(minutes); tie to Holzmann "Power of Ten" -->
+> - cars <!-- "60 Minutes" UW/UCSD demo -->
+> - pacemakers <!-- Karen Sandler -->
+
+## Rules for Developing Safety Critical Code
+
+1.      Restrict to simple control flow constructs.
+2.      Give all loops a fixed upper-bound.
+3.      Do not use dynamic memory allocation after initialization.
+<!--
+4.      Limit functions to no more than 60 lines of text.
+5.      Use minimally two assertions per function on average.
+6.      Declare data objects at the smallest possible level of scope.
+7.      Check the return value of non-void functions, and check the validity of function parameters.
+8.      Limit the use of the preprocessor to file inclusion and simple macros.
+9.      Limit the use of pointers. Use no more than two levels of dereferencing per expression.
+-->
+
+...
+
+10.     Compile with all warnings enabled, and use one or more source code analyzers.
+
+--- Gerard Holzmann, [_The Power of Ten_](http://spinroot.com/gerard/pdf/P10.pdf)
+
+## state of the art
+
+- seL4 microkernel has ~9k lines of C, proved correct down to the compiled ARM assembly
+- but seL4 took 11 person-years to verify the C implementation and 2 person-years to verify the assembly
+<!-- (cf “Comprehensive formal verification of an OS microkernel”, Gerwin Klein et al http://ssrg.nicta.com.au/projects/seL4/) -->
+- estimated $127 per line of code given the tools they have now
+<!-- arguably cheaper to design for formal verification than to fix bugs later, but still expensive. -->
+
+. . .
+
+what alternatives do we have?
+
+# tools today <!-- 15 minutes -->
+
+## runtime countermeasures
+
+- OS features: address space layout randomization (ASLR)
+- compiler features: `-fstack-protector`
+- compiler features: address sanitizer (Asan)
+
+```
+==26552== ERROR: AddressSanitizer stack-buffer-overflow on address 0x7fff338adb14 at pc 0xac20a7 bp 0x7fff338adad0 sp 0x7fff338adac8
+WRITE of size 4 at 0x7fff338adb14 thread T0
+    #0 0xac20a7 in base::ToolsSanityTest_DISABLED_AddressSanitizerLocalOOBCrashTest_Test::TestBody() ???:0
+    #1 0xcddbd6 in testing::Test::Run() testing/gtest/src/gtest.cc:2161
+    #2 0xcdf63b in testing::TestInfo::Run() testing/gtest/src/gtest.cc:2338
+...
+Address 0x7fff338adb14 is located at offset 52 in frame <base::ToolsSanityTest_DISABLED_AddressSanitizerLocalOOBCrashTest_Test::TestBody()> of T0's stack:
+  This frame has 2 object(s):
+    [32, 52) 'array'
+    [96, 104) 'access'
+==26552== ABORTING
+```
+
+## runtime countermeasures
+
+- developer tools: valgrind
+
+```
+  ==19182== Invalid write of size 4
+  ==19182==    at 0x804838F: f (example.c:6)
+  ==19182==    by 0x80483AB: main (example.c:11)
+  ==19182==  Address 0x1BA45050 is 0 bytes after a block of size 40 alloc'd
+  ==19182==    at 0x1B8FF5CD: malloc (vg_replace_malloc.c:130)
+  ==19182==    by 0x8048385: f (example.c:5)
+  ==19182==    by 0x80483AB: main (example.c:11)
+```
+
+- also finds memory leaks, data races, ...
+
+## runtime countermeasures
+
+when bugs are hit, try to minimize the consequences
+
+- better than the alternative
+- worth always using
+- but not very satisfying!
+
+## fuzz testing
+
+- generate random inputs and see if the program crashes or fails a valgrind check
+- dirt simple, scary effective!
+
+finds buffer overruns, crashes, other security or correctness bugs with minimal human effort
+
+- American Fuzzy Lop for file-format and protocol fuzzing <http://lcamtuf.coredump.cx/afl/>
+- Trinity for fuzzing Linux system calls <http://codemonkey.org.uk/projects/trinity/>
+
+. . .
+
+emphasizes just how bad things are: even GNU `strings` was exploitable
+
+## symbolic execution
+
+like a principled/directed kind of fuzz testing: find test inputs that cause the program to follow code paths that hit errors
+
+- KLEE LLVM Execution Engine <http://klee.github.io/>
+- Python Exploration with Z3 <https://github.com/thomasjball/PyExZ3>
+- Java PathFinder <http://babelfish.arc.nasa.gov/trac/jpf>
+- Software Analysis Workbench <http://saw.galois.com/> (non-commercial license)
+
+## randomized property testing
+
+- write down something that should be true for all inputs
+
+```haskell
+import Test.QuickCheck
+revrev, revid :: [Int] -> Bool
+revrev xs = reverse (reverse xs) == xs
+revid xs = reverse xs == xs
+```
+
+. . .
+
+- automatically check it for random inputs
+
+```haskell
+*Main> quickCheck revrev
++++ OK, passed 100 tests.
+*Main> quickCheck revid
+*** Failed! Falsifiable (after 4 tests and 1 shrink):
+[1,0]
+```
+
+## randomized property testing
+
+easier to write than unit tests and often more effective
+
+- original implementation: QuickCheck (Haskell)
+- now available for C, Java, Python, Ruby, and pretty much everything else
+
+## proving properties
+
+- write down properties like with QuickCheck, but prove for all inputs
+
+example using SBV on Haskell:
+
+```haskell
+ghci> prove $ \x -> x `shiftL` 2 .== 4 * (x::SWord8)
+Q.E.D.
+```
+
+- if proof is false, it may automatically find a counter-example:
+
+```haskell
+ghci> prove $ \x -> x `shiftL` 2 .== 2 * (x::SWord8)
+Falsifiable. Counter-example:
+  s0 = 32 :: Word8
+```
+
+## proving properties
+
+- write down properties like with QuickCheck, but prove for all inputs
+
+example using Frama-C on C:
+
+```c
+//@ ensures \result == \max(i,j);
+int max(int i, int j) {
+  return (i < j) ? j : i;
+}
+```
+
+. . .
+
+- many useful properties can be automatically proved to hold for all inputs!
+- optionally, you can manually prove the "hard" properties using theorem provers
+
+## pros and cons of property proofs
+
+pros:
+
+- can let you eliminate runtime checks by proving that they're always true, for faster and simpler code
+- explicit requirements are good documentation; even better if they're machine checked
+
+cons:
+
+- writing down all the right properties is hard!  
+  (try our crowd-sourced property-finding game: <https://monsterproof.verigames.com/>)
+- not many tools support property proofs integrated with development in languages you'd write real projects in  
+  (Frama-C, Java PathFinder, ...?)
+
+## equivalence proofs
+
+```java
+static int ffs_ref(int word) { // Java reference version
+    int i = 0;
+    if(word != 0)
+        for(int cnt = 0; cnt < 32; cnt++)
+            if(((1 << i++) & word) != 0)
+                return i;
+    return 0;
+}
+```
+
+```c
+uint32_t ffs_imp(uint32_t i) { /* Efficient C version */
+    char n = 1;
+    if (!(i & 0xffff)) { n += 16; i >>= 16; }
+    if (!(i & 0x00ff)) { n += 8;  i >>= 8; }
+    if (!(i & 0x000f)) { n += 4;  i >>= 4; }
+    if (!(i & 0x0003)) { n += 2;  i >>= 2; }
+    return (i) ? (n+((i+1) & 0x01)) : 0;
+}
+```
+
+## equivalence proofs
+
+Galois Software Analysis Workbench script:
+
+```
+j <- java_load_class "FFS";
+java_ffs_ref <- java_extract j "ffs_ref" java_pure;
+
+l <- llvm_load_module "ffs.bc";
+c_ffs_imp <- llvm_extract l "ffs_imp" llvm_pure;
+
+let equiv = {{ \x -> java_ffs_ref x == c_ffs_imp x }};
+prove_print abc equiv;
+```
+
+- putting symbolic execution and property proofs together
+- see also KLEE paper: comparing GNU coreutils against busybox
+
+# quadcopters! <!-- 8 minutes -->
+
+## "cyber-physical systems"
+
+physical systems, controlled by software  
+![3D Robotics "Iris" quadcopter](iris.jpg)  
+cc-by-nc-sa [flickr/ekai](https://www.flickr.com/photos/ekai/14195031445)
+
+## software vulnerabilities with physical consequences
+
+<!-- vulnerabilities in this software are exploitable for monetary gain (steal a quadcopter or what it’s carrying) or injury (fly at or drop on a person) -->
+![crashed quadcopter](crashed.jpg)  
+cc-by [flickr/lodefink](https://www.flickr.com/photos/lodefink/7245759800)
+
+## capitalism strikes again
+
+![Amazon Prime Air](amazon.jpg)
+
+- - -
+
+State of the art, May 2015:
+
+```java
+private static final SshConnection sshLink =
+    new SshConnection("10.1.1.1", "root", "TjSDBkAu");
+```
+
+<!-- a quadcopter with wi-fi that launched last month shipped its root password in the Android app that came with it, making it easily remotely exploitable (don’t call out by name, but it’s http://www.3drpilots.com/threads/shelling-out-on-3drobotics-solo-getting-root-on-a-%E2%80%98smart-drone.140/) -->
+
+. . .
+
+- but at least it uses crypto (Wi-Fi WPA + SSH)
+- other UAVs are unencrypted and unauthenticated
+
+## embedded systems == tough environments
+
+- error-prone manual memory management because GC breaks real-time
+- tiny RAM so no room for a high-level language runtime
+- fail-stop watchdogs could kill someone just as much as letting a bug trigger could
+
+<!-- (space vehicles disable fault-tolerance during critical phases because they don’t even trust the fault recovery mechanisms.) -->
+
+so we need better tools that let us have confidence in these critical embedded systems!
+
+## DARPA HACMS program: air team
+
+![SMACCMPilot high-assurance quadcopter autopilot](smaccmpilot.jpg)
+
+## DARPA HACMS program: air team
+
+![Boeing Unmanned Little Bird](little-bird.jpg)
+
+# future tools <!-- 5 minutes -->
+
+## Ivory: a safe subset of C
+
+buffer overruns and use-after-free:
+
+- impossible to screw up unless you integrate native C
+- compare Rust <http://www.rust-lang.org/>
+
+<!-- (no dynamic memory either, but see Holzmann “Power of Ten: Rules for Developing Safety Critical Code” http://spinroot.com/gerard/pdf/P10.pdf) -->
+
+## Ivory: also integrates property checking
+
+write properties in Ivory source once, then verify them different ways:
+
+- `ivory-quickcheck`: QuickCheck-style testing
+- `ivory-model-check`: Frama-C-style proofs
+
+## Ivory: also great for metaprogramming
+
+Turing-complete "macros" support mechanically generating code that would be tedious and/or error-prone to write by hand
+
+. . .
+
+> - 30 lines of Haskell generate 30,000 lines of efficient C implementing an Extended Kalman Filter
+
+> - combinatorial search at compile time to find timing parameters for serial peripherals
+
+> - or glue independent components together at compile time...
+
+## Tower: composition framework
+
+static
+:   all code and resources known at compile time, so we can verify properties
+
+real-time
+:   on a suitable RTOS, can check schedulability (currently supporting FreeRTOS, seL4; supporting but not real-time on Linux)
+
+concurrent
+:   message handlers are atomic but preemptible
+
+component
+:   same code can be reused in many different contexts, including across wildly different operating systems, and components combined in myriad ways
+
+framework
+:   library generates all message-passing glue from high-level specification
+
+## seL4: provable process isolation
+
+- independent "red teams" are paid to break everything we build
+- so let's give them root in a Linux VM on the quadcopter!
+- if they can't break out of the VM, we win
+
+. . .
+
+- (we're pretty confident)
+
+## SMACCMPilot
+
+- BSD-licensed autopilot for Pixhawk-based quadcopters
+- 10,000 lines of device driver source code
+- 7,000 lines of autopilot application software
+
+![flight data channels](tower.png)\ 
+
+# conclusions
+
+## better living through formal methods
+
+- no more buffer overruns nao plz kthx
+
+> Program testing can be used to show the presence of bugs, but never to show their absence! -- Edsger W. Dijkstra
+
+- random flailing (fuzz testing, randomized property testing, symbolic execution) finds more bugs than human testers!
+
+- formal proofs are becoming more automated and integrated in the development process; look for them in your future
+
+## we're hiring
+
+![Galois](galois-blue.png)\ 
+
+## questions? <!-- 10 minutes -->
+
+- <http://galois.com>
+
+- <http://smaccmpilot.org>
+
+- <https://github.com/GaloisInc/>
+
+- <jamey@galois.com>
+
+- [\@jamey\_sharp](https://twitter.com/jamey_sharp)
