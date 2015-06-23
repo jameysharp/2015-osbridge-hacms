@@ -1,25 +1,87 @@
 % Trustworthy Software in the Real World
-% Jamey Sharp
+% Jamey Sharp, Galois
 % 2015-06-23
 
 # intro <!-- 5 minutes -->
 
 ## "trusted" software
 
-controlling systems where privacy, money, or lives are at stake
+\centering
+controlling systems where privacy, money, or lives are at stake  
+![intensive care unit LCD monitor](ecg-monitor.jpg)  
+cc-by-sa [picasa/efaslimited](https://picasaweb.google.com/lh/photo/AQMUH6Oo_qlPyNeK-RLVtg)
+
+## trusted: quadcopters
+
+\centering
+![Parrot](parrot.jpg)  
+cc by-sa [wikimedia commons/Halftermeyer](https://commons.wikimedia.org/wiki/File:Parrot_AR.Drone_2.0_take-off,_Nevada.jpg)
+<!-- let's come back to that -->
+
+## trusted: ATMs
+
+\centering
+![ATM maintenance](atm.jpg)  
+cc by [wikimedia commons/Thomas von der Lippe](https://commons.wikimedia.org/wiki/File:Two_Loomis_Employees_Refilling_an_ATM_at_the_Downtown_Seattle_REI.jpg)
+
+## trusted: spacecraft
+
+\centering
+![Curiosity rover self-portrait](curiosity.jpg)  
+Photo: NASA/JPL-Caltech/MSSS
+<!-- expensive, must be fully autonomous since speed of light delay is O(minutes); tie to Holzmann "Power of Ten" -->
+
+## trusted: cars
+
+\centering
+![60 Minutes UW/UCSD demo](60-minutes.jpg)\ 
+<!-- "60 Minutes" UW/UCSD demo -->
+
+## trusted: pacemakers
+
+\centering
+![Pacemaker X-Ray](pacemaker.jpg)  
+cc-by [wikimedia commons/Sunzi99](https://commons.wikimedia.org/wiki/File:Herzschrittmacher_auf_Roentgenbild.jpg)
+<!-- Karen Sandler -->
 
 ## "trustworthy" software
 
-when that trust is justified (very different!)
+\centering
+when trust is justified
 
-## trusted
+. . .
 
-> - quadcopters <!-- let's come back to that -->
-> - Mars rovers: expensive and autonomous <!-- expensive, must be fully autonomous since speed of light delay is O(minutes); tie to Holzmann "Power of Ten" -->
-> - cars <!-- "60 Minutes" UW/UCSD demo -->
-> - pacemakers <!-- Karen Sandler -->
+\centering
+or not  
+![Explosion of first Ariane 5 flight, June 4, 1996](ariane-5.jpg)  
+Photo: [ESA](http://www.esa.int/spaceinimages/Images/2009/09/Explosion_of_first_Ariane_5_flight_June_4_1996)
 
-## Rules for Developing Safety Critical Code
+## kinds of assurance case
+
+- "this programmer usually writes solid code"
+- "there are some unit tests and they pass"
+- "the unit tests have high branch coverage"
+
+...
+
+- "we spent years proving everything correct"
+
+## state of the art
+
+- seL4 microkernel has ~9k lines of C, proved correct down to the compiled ARM assembly
+- but seL4 took 11 person-years to verify the C implementation and 2 person-years to verify the assembly
+<!-- (cf “Comprehensive formal verification of an OS microkernel”, Gerwin Klein et al http://ssrg.nicta.com.au/projects/seL4/) -->
+- estimated $127 per line of code given the tools they have now
+<!-- arguably cheaper to design for formal verification than to fix bugs later, but still expensive. -->
+
+. . .
+
+\centering
+what alternatives do we have?
+
+# tools today <!-- 15 minutes -->
+
+## machine-checkable coding standards
 
 1.      Restrict to simple control flow constructs.
 2.      Give all loops a fixed upper-bound.
@@ -37,24 +99,12 @@ when that trust is justified (very different!)
 
 10.     Compile with all warnings enabled, and use one or more source code analyzers.
 
---- Gerard Holzmann, [_The Power of Ten_](http://spinroot.com/gerard/pdf/P10.pdf)
-
-## state of the art
-
-- seL4 microkernel has ~9k lines of C, proved correct down to the compiled ARM assembly
-- but seL4 took 11 person-years to verify the C implementation and 2 person-years to verify the assembly
-<!-- (cf “Comprehensive formal verification of an OS microkernel”, Gerwin Klein et al http://ssrg.nicta.com.au/projects/seL4/) -->
-- estimated $127 per line of code given the tools they have now
-<!-- arguably cheaper to design for formal verification than to fix bugs later, but still expensive. -->
-
-. . .
-
-what alternatives do we have?
-
-# tools today <!-- 15 minutes -->
+--- Gerard Holzmann  
+[_The Power of Ten: Rules for Developing Safety Critical Code_](http://spinroot.com/gerard/pdf/P10.pdf)
 
 ## runtime countermeasures
 
+- programmer annotations: `assert()`
 - OS features: address space layout randomization (ASLR)
 - compiler features: `-fstack-protector`
 - compiler features: address sanitizer (Asan)
@@ -91,11 +141,17 @@ Address 0x7fff338adb14 is located at offset 52 in frame <base::ToolsSanityTest_D
 
 ## runtime countermeasures
 
+\centering
+![Old Barn](old-barn.jpg)  
+cc-by-sa [Chris Talbot](http://www.geograph.org.uk/photo/1256938)
+
+<!--
 when bugs are hit, try to minimize the consequences
 
 - better than the alternative
 - worth always using
 - but not very satisfying!
+-->
 
 ## fuzz testing
 
@@ -109,7 +165,8 @@ finds buffer overruns, crashes, other security or correctness bugs with minimal 
 
 . . .
 
-emphasizes just how bad things are: even GNU `strings` was exploitable
+\centering
+_even GNU `strings` was exploitable_
 
 ## symbolic execution
 
@@ -118,7 +175,6 @@ like a principled/directed kind of fuzz testing: find test inputs that cause the
 - KLEE LLVM Execution Engine <http://klee.github.io/>
 - Python Exploration with Z3 <https://github.com/thomasjball/PyExZ3>
 - Java PathFinder <http://babelfish.arc.nasa.gov/trac/jpf>
-- Software Analysis Workbench <http://saw.galois.com/> (non-commercial license)
 
 ## randomized property testing
 
@@ -227,7 +283,7 @@ uint32_t ffs_imp(uint32_t i) { /* Efficient C version */
 
 ## equivalence proofs
 
-Galois Software Analysis Workbench script:
+Galois _Software Analysis Workbench_ script:
 
 ```
 j <- java_load_class "FFS";
@@ -240,13 +296,17 @@ let equiv = {{ \x -> java_ffs_ref x == c_ffs_imp x }};
 prove_print abc equiv;
 ```
 
+. . .
+
 - putting symbolic execution and property proofs together
 - see also KLEE paper: comparing GNU coreutils against busybox
+- SAW license is free for non-commercial use
 
 # quadcopters! <!-- 8 minutes -->
 
 ## "cyber-physical systems"
 
+\centering
 physical systems, controlled by software  
 ![3D Robotics "Iris" quadcopter](iris.jpg)  
 cc-by-nc-sa [flickr/ekai](https://www.flickr.com/photos/ekai/14195031445)
@@ -254,6 +314,7 @@ cc-by-nc-sa [flickr/ekai](https://www.flickr.com/photos/ekai/14195031445)
 ## software vulnerabilities with physical consequences
 
 <!-- vulnerabilities in this software are exploitable for monetary gain (steal a quadcopter or what it’s carrying) or injury (fly at or drop on a person) -->
+\centering
 ![crashed quadcopter](crashed.jpg)  
 cc-by [flickr/lodefink](https://www.flickr.com/photos/lodefink/7245759800)
 
@@ -261,9 +322,13 @@ cc-by [flickr/lodefink](https://www.flickr.com/photos/lodefink/7245759800)
 
 ![Amazon Prime Air](amazon.jpg)
 
-- - -
+## what could go wrong?
 
-State of the art, May 2015:
+\centering
+![booze and quadcopters](booze-copters.jpg)  
+For sale at a 7-11 in Ohio (CC0 [twitter/obra](https://twitter.com/obra/status/612763979048353793))
+
+## state of the art, May 2015
 
 ```java
 private static final SshConnection sshLink =
@@ -277,6 +342,14 @@ private static final SshConnection sshLink =
 - but at least it uses crypto (Wi-Fi WPA + SSH)
 - other UAVs are unencrypted and unauthenticated
 
+## DARPA HACMS program: air team
+
+![SMACCMPilot high-assurance quadcopter autopilot](smaccmpilot.jpg)
+
+## DARPA HACMS program: air team
+
+![Boeing Unmanned Little Bird](little-bird.jpg)
+
 ## embedded systems == tough environments
 
 - error-prone manual memory management because GC breaks real-time
@@ -286,14 +359,6 @@ private static final SshConnection sshLink =
 <!-- (space vehicles disable fault-tolerance during critical phases because they don’t even trust the fault recovery mechanisms.) -->
 
 so we need better tools that let us have confidence in these critical embedded systems!
-
-## DARPA HACMS program: air team
-
-![SMACCMPilot high-assurance quadcopter autopilot](smaccmpilot.jpg)
-
-## DARPA HACMS program: air team
-
-![Boeing Unmanned Little Bird](little-bird.jpg)
 
 # future tools <!-- 5 minutes -->
 
@@ -309,6 +374,16 @@ buffer overruns and use-after-free:
 ## Ivory: also integrates property checking
 
 write properties in Ivory source once, then verify them different ways:
+
+```c
+int32_t max(int32_t a, int32_t b) {
+    return (a > b) ? a : b;
+}
+{
+    post(return >= a && return >= b);
+    post(return == a || return == b);
+}
+```
 
 - `ivory-quickcheck`: QuickCheck-style testing
 - `ivory-model-check`: Frama-C-style proofs
@@ -356,7 +431,8 @@ framework
 
 - BSD-licensed autopilot for Pixhawk-based quadcopters
 - 10,000 lines of device driver source code
-- 7,000 lines of autopilot application software
+- 8,000 lines of autopilot application software
+- generating 40,000 lines of C
 
 ![flight data channels](tower.png)\ 
 

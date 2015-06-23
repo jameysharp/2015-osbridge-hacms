@@ -1,8 +1,11 @@
 digraph Tower {
     thread_signal_SPI1_IRQHandler [style=filled];
+    thread_signal_UART4_IRQHandler [style=filled];
+    thread_signal_USART2_IRQHandler [style=filled];
     thread_period_5ms [style=filled];
     thread_period_10ms [style=filled];
     thread_period_20ms [style=filled];
+    thread_period_40ms [style=filled];
     thread_period_1000ms [style=filled];
     thread_init [style=filled];
     subgraph  cluster_applyCalibration {
@@ -26,17 +29,25 @@ digraph Tower {
         node [style=filled];
         accel_2;
         gyro_2;
-        init_2;
+        init_4;
         output;
         label = "monitor calcGyroBias";
     }
     subgraph  cluster_calcMagBias {
         color = blue;
         node [style=filled];
-        init_3;
+        init_5;
         mag;
         output_2;
         label = "monitor calcMagBias";
+    }
+    subgraph  cluster_fuse {
+        color = blue;
+        node [style=filled];
+        accel_3;
+        gyro_3;
+        mag_2;
+        label = "monitor fuse";
     }
     subgraph  cluster_l3gd20Ctl {
         color = blue;
@@ -87,8 +98,16 @@ digraph Tower {
     subgraph  cluster_sensor_enable {
         color = blue;
         node [style=filled];
-        init;
+        init_3;
         label = "monitor sensor_enable";
+    }
+    subgraph  cluster_sensorsender {
+        color = blue;
+        node [style=filled];
+        buffer_state;
+        deliver_state;
+        sender;
+        label = "monitor sensorsender";
     }
     subgraph  cluster_spi1PeripheralDriver {
         color = blue;
@@ -98,18 +117,51 @@ digraph Tower {
         request;
         label = "monitor spi1PeripheralDriver";
     }
+    subgraph  cluster_uart2_driver {
+        color = blue;
+        node [style=filled];
+        init_6;
+        interrupt_2;
+        req_chan_2;
+        label = "monitor uart2_driver";
+    }
+    subgraph  cluster_uart4_driver {
+        color = blue;
+        node [style=filled];
+        init;
+        interrupt;
+        req_chan;
+        label = "monitor uart4_driver";
+    }
+    subgraph  cluster_ubloxGPS {
+        color = blue;
+        node [style=filled];
+        init_2;
+        istream;
+        label = "monitor ubloxGPS";
+    }
 
     thread_signal_SPI1_IRQHandler -> irq;
+    thread_signal_UART4_IRQHandler -> interrupt;
+    thread_signal_USART2_IRQHandler -> interrupt_2;
     thread_period_5ms -> period;
     thread_period_10ms -> periodic;
     thread_period_20ms -> periodic_read;
+    thread_period_40ms -> deliver_state;
     thread_period_1000ms -> output;
     thread_period_1000ms -> output_2;
-    thread_init -> initialize_hardware;
+    thread_init -> init;
     thread_init -> init_2;
-    thread_init -> init_3;
+    thread_init -> initialize_hardware;
+    thread_init -> init_4;
+    thread_init -> init_5;
+    thread_init -> init_6;
+    biased_gyro -> gyro_3;
+    biased_gyro_2 -> mag_2;
     output -> cal_latest;
     output_2 -> cal_latest_2;
+    accel_3 -> buffer_state;
+    gyro_3 -> buffer_state;
     l3gd20 -> l3gd20_2;
     l3gd20 -> mpu6000_init;
     l3gd20 -> lsm303d_coroutine_init;
@@ -126,12 +178,14 @@ digraph Tower {
     mpu6000 -> gyro_2;
     mpu6000 -> biased_gyro;
     mpu6000 -> accel_2;
+    mpu6000 -> accel_3;
     mpu6000_init -> mpu6000;
     mpu6000_raw -> mpu6000;
     period -> mpu6000_2;
     period -> gyro_2;
     period -> biased_gyro;
     period -> accel_2;
+    period -> accel_3;
     ms5611 -> ms5611_2;
     ms5611_init -> ms5611;
     ms5611_raw -> ms5611;
@@ -146,8 +200,11 @@ digraph Tower {
     response -> lsm303d_coroutine_raw;
     response -> ms5611_raw;
     response -> l3gd20_raw;
-    init -> l3gd20_init;
-    initialize_hardware -> init;
+    init_3 -> l3gd20_init;
+    deliver_state -> sender;
+    sender -> req_chan_2;
+    initialize_hardware -> init_3;
     initialize_hardware -> ready_2;
     irq -> response;
+    interrupt -> istream;
 }
